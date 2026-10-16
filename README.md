@@ -1,33 +1,13 @@
 # Laser Pointer+
 
-Laser Pointer+ is a StarMash/SWAM extension for
-[`starmash.airmash.rocks`](https://starmash.airmash.rocks). It basically just adds some girth to Moz's OG laser
-pointer. These can be adjusted in **Mod Settings → Laser Pointer+**.
+A [StarMash](https://starmash.airmash.rocks) / SWAM extension that adds some girth and color to Moz's OG laser pointer.
 
-## Features
+Install URL: `https://cdn.jsdelivr.net/gh/Auroboris/laser-pointer-plus@f78d9520b656d2c21a2ea95a590c6893e5ee3623/extension.js`
 
-- Turn the pointer on or off.
-- Adjust its width with a left-to-right slider.
-- Choose a preset pointer color or enter a custom HEX color.
-- Reattaches automatically after respawning or changing aircraft.
+## Usage
 
-## Install
+Install the extension, reload StarMash, then open **Mod Settings → Laser Pointer+**.
 
-Add this URL to StarMash's extension loader:
-
-```text
-https://raw.githubusercontent.com/Auroboris/laser-pointer-plus/main/extension.js
-```
-
-Then reload StarMash, join a game, and open **Mod Settings → Laser Pointer+**
-to change the width and color. For a custom color, select **Custom HEX color**
-and enter a value such as `#ff33cc`.
-
-This is a StarMash extension loaded by URL; it is not a Chrome Web Store
-extension.
-
-## Compatibility
-
-The extension uses StarMash's public `SWAM`, `SettingsProvider`, `Players`, and
-`PIXI` globals. Its pointer attachment follows the laser-pointer approach in
-[`starmash-ext/starmash-things`](https://github.com/starmash-ext/starmash-things).
+- Toggle the laser on or off.
+- Drag the slider to change its width.
+- Choose a preset color or enter a custom HEX color.
