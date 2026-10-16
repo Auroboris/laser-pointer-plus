@@ -5,6 +5,7 @@
   const DEFAULTS = {
     enabled: true,
     width: 4,
+    length: 4000,
     colorPreset: "#ff3b30",
     customColor: "#ff3b30"
   };
@@ -83,7 +84,7 @@
     pointer.tint = getPointerColor();
     pointer.alpha = 0.9;
     pointer.width = clamp(settings.width, 1, 30);
-    pointer.height = 1000;
+    pointer.height = clamp(settings.length, 500, 8000);
     pointer.roundPixels = true;
   }
 
@@ -139,6 +140,11 @@
       max: 30,
       step: 1
     });
+    section.addSliderField("length", "Pointer length", {
+      min: 500,
+      max: 8000,
+      step: 250
+    });
     section.addValuesField("colorPreset", "Pointer color", COLOR_OPTIONS);
     section.addString(
       "customColor",
@@ -171,9 +177,9 @@
   SWAM.registerExtension({
     name: "Laser Pointer+",
     id: EXTENSION_ID,
-    description: "Adjustable laser-pointer width and color for StarMash.",
+    description: "Adjustable laser-pointer width, length, and color for StarMash.",
     author: "Auroboris",
-    version: "1.0.1",
+    version: "1.1.0",
     settingsProvider: createSettingsProvider()
   });
 }();
