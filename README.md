@@ -1,8 +1,8 @@
 # Laser Pointer+
 
 Laser Pointer+ is a StarMash/SWAM extension for
-[`starmash.airmash.rocks`](https://starmash.airmash.rocks). It adds a laser
-pointer to your aircraft with controls in **Mod Settings → Laser Pointer+**.
+[`starmash.airmash.rocks`](https://starmash.airmash.rocks). It basically just adds some girth to Moz's OG laser
+pointer. These can be adjusted in **Mod Settings → Laser Pointer+**.
 
 ## Features
 
