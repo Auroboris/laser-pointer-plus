@@ -149,16 +149,17 @@
     return provider;
   }
 
-  SWAM.on("gameRunning", function() {
+  function startPointerTracking() {
     gameReady = true;
     ensurePointer();
 
     if (!attachmentTimer) {
       attachmentTimer = setInterval(ensurePointer, 500);
     }
-  });
+  }
 
-  SWAM.on("gamePrep", schedulePointerUpdate);
+  SWAM.on("gameRunning", startPointerTracking);
+  SWAM.on("gamePrep", startPointerTracking);
   SWAM.on("playerAdded", schedulePointerUpdate);
   SWAM.on("playerChangedType", schedulePointerUpdate);
 
@@ -172,7 +173,7 @@
     id: EXTENSION_ID,
     description: "Adjustable laser-pointer width and color for StarMash.",
     author: "Auroboris",
-    version: "1.0.0",
+    version: "1.0.1",
     settingsProvider: createSettingsProvider()
   });
 }();
