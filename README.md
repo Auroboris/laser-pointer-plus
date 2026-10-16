@@ -1,6 +1,6 @@
 # Laser Pointer+
 
-A [StarMash](https://starmash.airmash.rocks) / SWAM extension that adds some girth and color to Moz's OG laser pointer.
+A [StarMash](https://starmash.airmash.rocks) / SWAM extension that adds some girth, length, and shades to Moz's OG laser pointer. Can function at map edges. 
 
 Install URL: `https://cdn.jsdelivr.net/gh/Auroboris/laser-pointer-plus@d2a4e46e734ee0cb3ccd84a920b834e8e04bfd22/extension.js`
 
