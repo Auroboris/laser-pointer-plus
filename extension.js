@@ -15,7 +15,15 @@
     gateToggleKey: "G",
     gateDistance: 4000,
     gateWidth: 400,
-    gateSweepTime: 1500
+    gateSweepTime: 1500,
+    gateCenterlineWidth: 4,
+    gateCenterlineBrightness: 25,
+    gateSweepWidth: 4,
+    gateSweepBrightness: 90,
+    gateBoundaryThickness: 4,
+    gateBoundaryBrightness: 65,
+    gateCenterSize: 14,
+    gateCenterBrightness: 90
   };
 
   const COLOR_OPTIONS = {
@@ -136,10 +144,17 @@
   function stylePointer() {
     if (!pointer) return;
 
+    const centerlineActive = gateActive;
     pointer.tint = getPointerColor();
-    pointer.alpha = gateActive ? 0.25 : 0.9;
-    pointer.width = clamp(settings.width, 1, 30);
-    pointer.height = clamp(settings.length, 500, 8000);
+    pointer.alpha = centerlineActive
+      ? clamp(settings.gateCenterlineBrightness, 10, 100) / 100
+      : 0.9;
+    pointer.width = centerlineActive
+      ? clamp(settings.gateCenterlineWidth, 1, 30)
+      : clamp(settings.width, 1, 30);
+    pointer.height = centerlineActive
+      ? clamp(settings.gateDistance, 500, 8000)
+      : clamp(settings.length, 500, 8000);
     pointer.position.set(0, clamp(settings.originOffset, -200, 200));
     pointer.visible = !pointerCoolingDown;
     pointer.roundPixels = true;
@@ -159,7 +174,12 @@
     const distance = clamp(settings.gateDistance, 500, 8000);
     const width = clamp(settings.gateWidth, 50, 2000);
     const sweepTime = clamp(settings.gateSweepTime, 250, 5000);
-    const thickness = clamp(settings.width, 1, 10);
+    const sweepWidth = clamp(settings.gateSweepWidth, 1, 30);
+    const sweepAlpha = clamp(settings.gateSweepBrightness, 10, 100) / 100;
+    const boundaryThickness = clamp(settings.gateBoundaryThickness, 1, 30);
+    const boundaryAlpha = clamp(settings.gateBoundaryBrightness, 10, 100) / 100;
+    const centerSize = clamp(settings.gateCenterSize, 2, 60);
+    const centerAlpha = clamp(settings.gateCenterBrightness, 10, 100) / 100;
     const color = getPointerColor();
 
     if (scanStartedAt === null) scanStartedAt = timestamp;
@@ -171,33 +191,35 @@
     const gateY = origin - distance;
 
     gateSprites.scan.position.set(0, origin);
-    gateSprites.scan.width = clamp(settings.width, 1, 30);
+    gateSprites.scan.width = sweepWidth;
     gateSprites.scan.height = beamLength;
     gateSprites.scan.rotation = beamRotation;
     gateSprites.scan.tint = color;
-    gateSprites.scan.alpha = 0.9;
+    gateSprites.scan.alpha = sweepAlpha;
 
     gateSprites.bar.position.set(0, gateY);
     gateSprites.bar.width = width;
-    gateSprites.bar.height = thickness;
+    gateSprites.bar.height = boundaryThickness;
 
     gateSprites.left.position.set(-width / 2, gateY);
     gateSprites.right.position.set(width / 2, gateY);
     gateSprites.center.position.set(0, gateY);
 
     [gateSprites.left, gateSprites.right].forEach(function(sprite) {
-      sprite.width = thickness;
+      sprite.width = boundaryThickness;
       sprite.height = 80;
     });
 
-    gateSprites.center.width = thickness;
-    gateSprites.center.height = 40;
+    gateSprites.center.width = centerSize;
+    gateSprites.center.height = centerSize;
 
-    [gateSprites.bar, gateSprites.left, gateSprites.right, gateSprites.center]
-      .forEach(function(sprite) {
-        sprite.tint = color;
-        sprite.alpha = 0.65;
-      });
+    [gateSprites.bar, gateSprites.left, gateSprites.right].forEach(function(sprite) {
+      sprite.tint = color;
+      sprite.alpha = boundaryAlpha;
+    });
+
+    gateSprites.center.tint = color;
+    gateSprites.center.alpha = centerAlpha;
   }
 
   function ensureRangeGate(shipSprite) {
@@ -456,6 +478,46 @@
       max: 5000,
       step: 250
     });
+    section.addSliderField("gateCenterlineWidth", "Scope centerline thickness", {
+      min: 1,
+      max: 30,
+      step: 1
+    });
+    section.addSliderField("gateCenterlineBrightness", "Scope centerline brightness", {
+      min: 10,
+      max: 100,
+      step: 5
+    });
+    section.addSliderField("gateSweepWidth", "Sweep line thickness", {
+      min: 1,
+      max: 30,
+      step: 1
+    });
+    section.addSliderField("gateSweepBrightness", "Sweep line brightness", {
+      min: 10,
+      max: 100,
+      step: 5
+    });
+    section.addSliderField("gateBoundaryThickness", "Scope boundary thickness", {
+      min: 1,
+      max: 30,
+      step: 1
+    });
+    section.addSliderField("gateBoundaryBrightness", "Scope boundary brightness", {
+      min: 10,
+      max: 100,
+      step: 5
+    });
+    section.addSliderField("gateCenterSize", "Scope center point size", {
+      min: 2,
+      max: 60,
+      step: 2
+    });
+    section.addSliderField("gateCenterBrightness", "Scope center point brightness", {
+      min: 10,
+      max: 100,
+      step: 5
+    });
 
     return provider;
   }
@@ -490,7 +552,7 @@
     id: EXTENSION_ID,
     description: "Adjustable laser pointer with hotkeys, shot reset, and a scanning range gate for StarMash.",
     author: "Auroboris",
-    version: "1.3.0",
+    version: "1.4.0",
     settingsProvider: createSettingsProvider()
   });
 }();
