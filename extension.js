@@ -2,6 +2,7 @@
   "use strict";
 
   const EXTENSION_ID = "laser-pointer-plus";
+  const SETTINGS_STORAGE_KEY = EXTENSION_ID + "-settings";
   const DEFAULTS = {
     enabled: true,
     toggleKey: "P",
@@ -38,7 +39,19 @@
     custom: "Custom HEX color"
   };
 
-  let settings = Object.assign({}, DEFAULTS);
+  function loadSavedSettings() {
+    try {
+      if (typeof localStorage === "undefined") return {};
+      const saved = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || "{}");
+      return saved && typeof saved === "object" && !Array.isArray(saved)
+        ? saved
+        : {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  let settings = Object.assign({}, DEFAULTS, loadSavedSettings());
   let pointer = null;
   let pointerOwner = null;
   let gameReady = false;
@@ -423,97 +436,118 @@
 
   function settingsApplied(values) {
     settings = Object.assign({}, DEFAULTS, values || {});
+
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+      }
+    } catch (error) {
+      // StarMash still keeps its own saved copy if local storage is unavailable.
+    }
+
     if (!settings.resetAfterShot) cancelPointerCooldown();
     ensurePointer();
   }
 
   function createSettingsProvider() {
     const provider = new SettingsProvider(settings, settingsApplied);
-    const section = provider.addSection("Laser Pointer+");
+    const pointerSection = provider.addSection("Pointer");
 
-    section.addBoolean("enabled", "Show the laser pointer");
-    section.addString("toggleKey", "Pointer toggle key", {maxLength: 20});
-    section.addSliderField("width", "Pointer width", {
+    pointerSection.addBoolean("enabled", "Show the laser pointer");
+    pointerSection.addString("toggleKey", "Pointer toggle key", {maxLength: 20});
+    pointerSection.addSliderField("width", "Pointer width", {
       min: 1,
       max: 30,
       step: 1
     });
-    section.addSliderField("length", "Pointer length", {
+    pointerSection.addSliderField("length", "Pointer length", {
       min: 500,
       max: 8000,
       step: 250
     });
-    section.addSliderField("originOffset", "Pointer origin offset (0 = standard)", {
+    pointerSection.addSliderField("originOffset", "Pointer origin offset (0 = standard)", {
       min: -200,
       max: 200,
       step: 5
     });
-    section.addValuesField("colorPreset", "Pointer color", COLOR_OPTIONS);
-    section.addString(
+    pointerSection.addValuesField("colorPreset", "Pointer and scope color", COLOR_OPTIONS);
+    pointerSection.addString(
       "customColor",
       "Custom HEX color (select Custom above)",
       {maxLength: 7}
     );
-    section.addBoolean("resetAfterShot", "Hide the pointer briefly after shooting");
-    section.addSliderField("resetDelay", "Pointer return delay (milliseconds)", {
+
+    const resetSection = provider.addSection("Shot Reset");
+
+    resetSection.addBoolean("resetAfterShot", "Hide the pointer after shooting");
+    resetSection.addSliderField("resetDelay", "Return delay (milliseconds)", {
       min: 100,
       max: 2000,
       step: 100
     });
-    section.addString("gateToggleKey", "Scanning range gate toggle key", {
+
+    const scopeSection = provider.addSection("Scanning Scope");
+
+    scopeSection.addString("gateToggleKey", "Scope toggle key", {
       maxLength: 20
     });
-    section.addSliderField("gateDistance", "Range gate distance", {
+    scopeSection.addSliderField("gateDistance", "Scope distance", {
       min: 500,
       max: 8000,
       step: 250
     });
-    section.addSliderField("gateWidth", "Range gate width", {
+    scopeSection.addSliderField("gateWidth", "Scope width", {
       min: 50,
       max: 2000,
       step: 50
     });
-    section.addSliderField("gateSweepTime", "Edge-to-edge sweep time (milliseconds)", {
+    scopeSection.addSliderField("gateSweepTime", "Edge-to-edge sweep time (milliseconds)", {
       min: 250,
       max: 5000,
       step: 250
     });
-    section.addSliderField("gateCenterlineWidth", "Scope centerline thickness", {
+
+    const linesSection = provider.addSection("Scope Lines");
+
+    linesSection.addSliderField("gateCenterlineWidth", "Centerline thickness", {
       min: 1,
       max: 30,
       step: 1
     });
-    section.addSliderField("gateCenterlineBrightness", "Scope centerline brightness", {
+    linesSection.addSliderField("gateCenterlineBrightness", "Centerline brightness", {
       min: 10,
       max: 100,
       step: 5
     });
-    section.addSliderField("gateSweepWidth", "Sweep line thickness", {
+    linesSection.addSliderField("gateSweepWidth", "Sweep line thickness", {
       min: 1,
       max: 30,
       step: 1
     });
-    section.addSliderField("gateSweepBrightness", "Sweep line brightness", {
+    linesSection.addSliderField("gateSweepBrightness", "Sweep line brightness", {
       min: 10,
       max: 100,
       step: 5
     });
-    section.addSliderField("gateBoundaryThickness", "Scope boundary thickness", {
+
+    const boundarySection = provider.addSection("Scope Boundary");
+
+    boundarySection.addSliderField("gateBoundaryThickness", "Boundary thickness", {
       min: 1,
       max: 30,
       step: 1
     });
-    section.addSliderField("gateBoundaryBrightness", "Scope boundary brightness", {
+    boundarySection.addSliderField("gateBoundaryBrightness", "Boundary brightness", {
       min: 10,
       max: 100,
       step: 5
     });
-    section.addSliderField("gateCenterSize", "Scope center point size", {
+    boundarySection.addSliderField("gateCenterSize", "Center-point size", {
       min: 2,
       max: 60,
       step: 2
     });
-    section.addSliderField("gateCenterBrightness", "Scope center point brightness", {
+    boundarySection.addSliderField("gateCenterBrightness", "Center-point brightness", {
       min: 10,
       max: 100,
       step: 5
@@ -552,7 +586,7 @@
     id: EXTENSION_ID,
     description: "Adjustable laser pointer with hotkeys, shot reset, and a scanning range gate for StarMash.",
     author: "Auroboris",
-    version: "1.4.0",
+    version: "1.5.0",
     settingsProvider: createSettingsProvider()
   });
 }();
