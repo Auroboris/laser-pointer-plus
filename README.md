@@ -1,6 +1,6 @@
 # Laser Pointer+
 
-A [StarMash](https://starmash.airmash.rocks) / SWAM extension that adds some girth, length, & shades to Moz's OG laser pointer. Can function at map edges, has a new pointer 'reload' feature, and the beam origin can be adjusted.
+A [StarMash](https://starmash.airmash.rocks) / SWAM extension that adds some girth, length, & shades to Moz's OG laser pointer. Can function at map edges, has a pointer 'reload' feature, an adjustable beam origin, and a customizable scanning scope.
 
 Install URL: `https://cdn.jsdelivr.net/gh/Auroboris/laser-pointer-plus@c2107074ec59551a6eaa4b64181518e668abedd0/extension.js`
 
