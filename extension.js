@@ -11,7 +11,11 @@
     colorPreset: "#ff3b30",
     customColor: "#ff3b30",
     resetAfterShot: true,
-    resetDelay: 500
+    resetDelay: 500,
+    gateToggleKey: "G",
+    gateDistance: 4000,
+    gateWidth: 400,
+    gateSweepTime: 1500
   };
 
   const COLOR_OPTIONS = {
@@ -35,6 +39,11 @@
   let pointerCoolingDown = false;
   let cooldownTimer = null;
   let shotHookInstalled = false;
+  let gateActive = false;
+  let gateOwner = null;
+  let gateSprites = null;
+  let scanStartedAt = null;
+  let animationFrame = null;
 
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, Number(value)));
@@ -94,11 +103,41 @@
     pointerOwner = null;
   }
 
+  function removeRangeGate() {
+    if (!gateSprites) return;
+
+    Object.keys(gateSprites).forEach(function(key) {
+      const sprite = gateSprites[key];
+      if (sprite.parent) sprite.parent.removeChild(sprite);
+      sprite.destroy();
+    });
+
+    gateSprites = null;
+    gateOwner = null;
+    scanStartedAt = null;
+  }
+
+  function createGateSprite(name, anchorX, anchorY) {
+    const sprite = new PIXI.Sprite(PIXI.Texture.WHITE);
+    sprite.name = EXTENSION_ID + "-" + name;
+
+    if (sprite.anchor && sprite.anchor.set) {
+      sprite.anchor.set(anchorX, anchorY);
+    }
+
+    return sprite;
+  }
+
+  function gateShouldBeVisible() {
+    return gameReady && settings.enabled && pointerActive && gateActive &&
+      !pointerCoolingDown;
+  }
+
   function stylePointer() {
     if (!pointer) return;
 
     pointer.tint = getPointerColor();
-    pointer.alpha = 0.9;
+    pointer.alpha = gateActive ? 0.25 : 0.9;
     pointer.width = clamp(settings.width, 1, 30);
     pointer.height = clamp(settings.length, 500, 8000);
     pointer.position.set(0, clamp(settings.originOffset, -200, 200));
@@ -106,20 +145,108 @@
     pointer.roundPixels = true;
   }
 
+  function styleRangeGate(timestamp) {
+    if (!gateSprites) return;
+
+    const visible = gateShouldBeVisible();
+    Object.keys(gateSprites).forEach(function(key) {
+      gateSprites[key].visible = visible;
+    });
+
+    if (!visible) return;
+
+    const origin = clamp(settings.originOffset, -200, 200);
+    const distance = clamp(settings.gateDistance, 500, 8000);
+    const width = clamp(settings.gateWidth, 50, 2000);
+    const sweepTime = clamp(settings.gateSweepTime, 250, 5000);
+    const thickness = clamp(settings.width, 1, 10);
+    const color = getPointerColor();
+
+    if (scanStartedAt === null) scanStartedAt = timestamp;
+
+    const elapsed = Math.max(0, timestamp - scanStartedAt);
+    const endX = Math.sin(Math.PI * elapsed / sweepTime) * width / 2;
+    const beamLength = Math.sqrt(distance * distance + endX * endX);
+    const beamRotation = Math.PI + Math.atan2(endX, distance);
+    const gateY = origin - distance;
+
+    gateSprites.scan.position.set(0, origin);
+    gateSprites.scan.width = clamp(settings.width, 1, 30);
+    gateSprites.scan.height = beamLength;
+    gateSprites.scan.rotation = beamRotation;
+    gateSprites.scan.tint = color;
+    gateSprites.scan.alpha = 0.9;
+
+    gateSprites.bar.position.set(0, gateY);
+    gateSprites.bar.width = width;
+    gateSprites.bar.height = thickness;
+
+    gateSprites.left.position.set(-width / 2, gateY);
+    gateSprites.right.position.set(width / 2, gateY);
+    gateSprites.center.position.set(0, gateY);
+
+    [gateSprites.left, gateSprites.right].forEach(function(sprite) {
+      sprite.width = thickness;
+      sprite.height = 80;
+    });
+
+    gateSprites.center.width = thickness;
+    gateSprites.center.height = 40;
+
+    [gateSprites.bar, gateSprites.left, gateSprites.right, gateSprites.center]
+      .forEach(function(sprite) {
+        sprite.tint = color;
+        sprite.alpha = 0.65;
+      });
+  }
+
+  function ensureRangeGate(shipSprite) {
+    if (!gateActive || !shipSprite) {
+      removeRangeGate();
+      return;
+    }
+
+    if (!gateSprites || gateOwner !== shipSprite) {
+      removeRangeGate();
+
+      gateSprites = {
+        scan: createGateSprite("scan", 0.5, 0),
+        bar: createGateSprite("gate-bar", 0.5, 0.5),
+        left: createGateSprite("gate-left", 0.5, 0.5),
+        right: createGateSprite("gate-right", 0.5, 0.5),
+        center: createGateSprite("gate-center", 0.5, 0.5)
+      };
+
+      Object.keys(gateSprites).forEach(function(key) {
+        shipSprite.addChild(gateSprites[key]);
+      });
+      gateOwner = shipSprite;
+      scanStartedAt = null;
+    }
+
+    const now = typeof performance !== "undefined" && performance.now
+      ? performance.now()
+      : Date.now();
+    styleRangeGate(now);
+  }
+
   function ensurePointer() {
     if (!gameReady || !settings.enabled || !pointerActive) {
       removePointer();
+      removeRangeGate();
       return;
     }
 
     const shipSprite = getMyShipSprite();
     if (!shipSprite) {
       removePointer();
+      removeRangeGate();
       return;
     }
 
     if (pointer && pointerOwner === shipSprite && pointer.parent === shipSprite) {
       stylePointer();
+      ensureRangeGate(shipSprite);
       return;
     }
 
@@ -136,6 +263,7 @@
     stylePointer();
     shipSprite.addChild(pointer);
     pointerOwner = shipSprite;
+    ensureRangeGate(shipSprite);
   }
 
   function cancelPointerCooldown() {
@@ -146,6 +274,8 @@
 
     pointerCoolingDown = false;
     if (pointer) pointer.visible = true;
+    scanStartedAt = null;
+    if (gateSprites) styleRangeGate(0);
   }
 
   function resetPointerAfterShot() {
@@ -155,11 +285,13 @@
 
     pointerCoolingDown = true;
     if (pointer) pointer.visible = false;
+    if (gateSprites) styleRangeGate(0);
 
     if (cooldownTimer) clearTimeout(cooldownTimer);
     cooldownTimer = setTimeout(function() {
       cooldownTimer = null;
       pointerCoolingDown = false;
+      scanStartedAt = null;
       ensurePointer();
     }, clamp(settings.resetDelay, 100, 2000));
   }
@@ -200,8 +332,8 @@
     return key;
   }
 
-  function eventMatchesToggleKey(event) {
-    const wanted = normalizeKey(settings.toggleKey || DEFAULTS.toggleKey);
+  function eventMatchesKey(event, configuredKey, fallbackKey) {
+    const wanted = normalizeKey(configuredKey || fallbackKey);
     if (!wanted) return false;
 
     return [event && event.key, event && event.code]
@@ -229,13 +361,38 @@
   }
 
   function handleKeyDown(event) {
-    if (!event || event.repeat || isTyping(event) || !eventMatchesToggleKey(event)) {
+    if (!event || event.repeat || isTyping(event)) return;
+
+    if (eventMatchesKey(event, settings.toggleKey, DEFAULTS.toggleKey)) {
+      pointerActive = !pointerActive;
+      cancelPointerCooldown();
+      ensurePointer();
       return;
     }
 
-    pointerActive = !pointerActive;
-    cancelPointerCooldown();
-    ensurePointer();
+    if (eventMatchesKey(event, settings.gateToggleKey, DEFAULTS.gateToggleKey)) {
+      gateActive = !gateActive;
+      scanStartedAt = null;
+      ensurePointer();
+    }
+  }
+
+  function animateRangeGate(timestamp) {
+    if (gameReady && gateSprites) styleRangeGate(timestamp);
+    animationFrame = requestAnimationFrame(animateRangeGate);
+  }
+
+  function startRangeGateAnimation() {
+    if (!animationFrame) {
+      animationFrame = requestAnimationFrame(animateRangeGate);
+    }
+  }
+
+  function stopRangeGateAnimation() {
+    if (animationFrame) {
+      cancelAnimationFrame(animationFrame);
+      animationFrame = null;
+    }
   }
 
   function schedulePointerUpdate() {
@@ -281,6 +438,24 @@
       max: 2000,
       step: 100
     });
+    section.addString("gateToggleKey", "Scanning range gate toggle key", {
+      maxLength: 20
+    });
+    section.addSliderField("gateDistance", "Range gate distance", {
+      min: 500,
+      max: 8000,
+      step: 250
+    });
+    section.addSliderField("gateWidth", "Range gate width", {
+      min: 50,
+      max: 2000,
+      step: 50
+    });
+    section.addSliderField("gateSweepTime", "Edge-to-edge sweep time (milliseconds)", {
+      min: 250,
+      max: 5000,
+      step: 250
+    });
 
     return provider;
   }
@@ -289,6 +464,7 @@
     gameReady = true;
     installShotHook();
     ensurePointer();
+    startRangeGateAnimation();
 
     if (!attachmentTimer) {
       attachmentTimer = setInterval(ensurePointer, 500);
@@ -304,15 +480,17 @@
   SWAM.on("gameWipe", function() {
     gameReady = false;
     cancelPointerCooldown();
+    stopRangeGateAnimation();
     removePointer();
+    removeRangeGate();
   });
 
   SWAM.registerExtension({
     name: "Laser Pointer+",
     id: EXTENSION_ID,
-    description: "Adjustable laser-pointer position, size, color, hotkey, and shot reset for StarMash.",
+    description: "Adjustable laser pointer with hotkeys, shot reset, and a scanning range gate for StarMash.",
     author: "Auroboris",
-    version: "1.2.0",
+    version: "1.3.0",
     settingsProvider: createSettingsProvider()
   });
 }();
