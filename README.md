@@ -2,12 +2,14 @@
 
 A [StarMash](https://starmash.airmash.rocks) / SWAM extension that adds some girth, length, & shades to Moz's OG laser pointer. Can function at map edges, has a pointer 'reload' feature, an adjustable beam origin, and a customizable scanning scope.
 
-Install URL: `https://cdn.jsdelivr.net/gh/Auroboris/laser-pointer-plus@c2107074ec59551a6eaa4b64181518e668abedd0/extension.js`
+Install URL: `https://cdn.jsdelivr.net/gh/Auroboris/laser-pointer-plus@c88df8acd33021deaced64b788cac0a5c89b6eb8/extension.js`
 
 ## Usage
 
 Install the extension, reload StarMash, then open **Mod Settings → Laser Pointer+**.
 
+- Your adjustments are saved when you apply the settings and restored after reloading the game.
+- Controls are organized into **Pointer**, **Shot Reset**, **Scanning Scope**, **Scope Lines**, and **Scope Boundary** sections.
 - Toggle the laser on or off with any chosen key (`P` by default).
 - Drag the sliders to change its width and length.
 - Move the beam origin forward or backward. `0` keeps the standard position.
