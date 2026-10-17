@@ -3,6 +3,8 @@
 
   const EXTENSION_ID = "laser-pointer-plus";
   const SETTINGS_STORAGE_KEY = EXTENSION_ID + "-settings";
+  const SCOPE_GLOW_DURATION = 350;
+  const SHOT_CONFIRMATION_WINDOW = 1200;
   const DEFAULTS = {
     enabled: true,
     toggleKey: "P",
@@ -21,6 +23,9 @@
     gateCenterlineBrightness: 25,
     gateSweepWidth: 4,
     gateSweepBrightness: 90,
+    gateSweepColorPreset: "match",
+    gateSweepCustomColor: "#ffffff",
+    gateCenteredShotGlow: true,
     gateBoundaryThickness: 4,
     gateBoundaryBrightness: 65,
     gateCenterSize: 14,
@@ -38,6 +43,10 @@
     "#ffffff": "White",
     custom: "Custom HEX color"
   };
+
+  const SWEEP_COLOR_OPTIONS = Object.assign({
+    match: "Match pointer color"
+  }, COLOR_OPTIONS);
 
   function loadSavedSettings() {
     try {
@@ -64,10 +73,18 @@
   let gateOwner = null;
   let gateSprites = null;
   let scanStartedAt = null;
+  let scopeGlowUntil = 0;
+  let pendingShotTiming = null;
   let animationFrame = null;
 
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, Number(value)));
+  }
+
+  function getCurrentTime() {
+    return typeof performance !== "undefined" && performance.now
+      ? performance.now()
+      : Date.now();
   }
 
   function parseHexColor(value) {
@@ -93,6 +110,16 @@
       : settings.colorPreset;
     const parsed = parseHexColor(selected);
     return parsed === null ? parseHexColor(DEFAULTS.colorPreset) : parsed;
+  }
+
+  function getSweepColor() {
+    if (settings.gateSweepColorPreset === "match") return getPointerColor();
+
+    const selected = settings.gateSweepColorPreset === "custom"
+      ? settings.gateSweepCustomColor
+      : settings.gateSweepColorPreset;
+    const parsed = parseHexColor(selected);
+    return parsed === null ? getPointerColor() : parsed;
   }
 
   function getMyShipSprite() {
@@ -136,6 +163,8 @@
     gateSprites = null;
     gateOwner = null;
     scanStartedAt = null;
+    scopeGlowUntil = 0;
+    pendingShotTiming = null;
   }
 
   function createGateSprite(name, anchorX, anchorY) {
@@ -149,9 +178,13 @@
     return sprite;
   }
 
-  function gateShouldBeVisible() {
+  function isScopeGlowActive(timestamp) {
+    return settings.gateCenteredShotGlow && scopeGlowUntil > timestamp;
+  }
+
+  function gateShouldBeVisible(timestamp) {
     return gameReady && settings.enabled && pointerActive && gateActive &&
-      !pointerCoolingDown;
+      (!pointerCoolingDown || isScopeGlowActive(timestamp));
   }
 
   function stylePointer() {
@@ -176,7 +209,10 @@
   function styleRangeGate(timestamp) {
     if (!gateSprites) return;
 
-    const visible = gateShouldBeVisible();
+    timestamp = Number.isFinite(timestamp) ? timestamp : getCurrentTime();
+
+    const glowActive = isScopeGlowActive(timestamp);
+    const visible = gateShouldBeVisible(timestamp);
     Object.keys(gateSprites).forEach(function(key) {
       gateSprites[key].visible = visible;
     });
@@ -194,6 +230,8 @@
     const centerSize = clamp(settings.gateCenterSize, 2, 60);
     const centerAlpha = clamp(settings.gateCenterBrightness, 10, 100) / 100;
     const color = getPointerColor();
+    const sweepColor = getSweepColor();
+    const glowScale = glowActive ? 2 : 1;
 
     if (scanStartedAt === null) scanStartedAt = timestamp;
 
@@ -204,35 +242,84 @@
     const gateY = origin - distance;
 
     gateSprites.scan.position.set(0, origin);
-    gateSprites.scan.width = sweepWidth;
+    gateSprites.scan.width = sweepWidth * glowScale;
     gateSprites.scan.height = beamLength;
     gateSprites.scan.rotation = beamRotation;
-    gateSprites.scan.tint = color;
-    gateSprites.scan.alpha = sweepAlpha;
+    gateSprites.scan.tint = sweepColor;
+    gateSprites.scan.alpha = glowActive ? 1 : sweepAlpha;
 
     gateSprites.bar.position.set(0, gateY);
     gateSprites.bar.width = width;
-    gateSprites.bar.height = boundaryThickness;
+    gateSprites.bar.height = boundaryThickness * glowScale;
 
     gateSprites.left.position.set(-width / 2, gateY);
     gateSprites.right.position.set(width / 2, gateY);
     gateSprites.center.position.set(0, gateY);
 
     [gateSprites.left, gateSprites.right].forEach(function(sprite) {
-      sprite.width = boundaryThickness;
+      sprite.width = boundaryThickness * glowScale;
       sprite.height = 80;
     });
 
-    gateSprites.center.width = centerSize;
-    gateSprites.center.height = centerSize;
+    gateSprites.center.width = centerSize * glowScale;
+    gateSprites.center.height = centerSize * glowScale;
 
     [gateSprites.bar, gateSprites.left, gateSprites.right].forEach(function(sprite) {
       sprite.tint = color;
-      sprite.alpha = boundaryAlpha;
+      sprite.alpha = glowActive ? 1 : boundaryAlpha;
     });
 
     gateSprites.center.tint = color;
-    gateSprites.center.alpha = centerAlpha;
+    gateSprites.center.alpha = glowActive ? 1 : centerAlpha;
+  }
+
+  function getSweepEndX(timestamp) {
+    if (scanStartedAt === null) return null;
+
+    const width = clamp(settings.gateWidth, 50, 2000);
+    const sweepTime = clamp(settings.gateSweepTime, 250, 5000);
+    const elapsed = Math.max(0, timestamp - scanStartedAt);
+    return Math.sin(Math.PI * elapsed / sweepTime) * width / 2;
+  }
+
+  function isSweepCentered(timestamp) {
+    if (!gameReady || !settings.enabled || !pointerActive || !gateActive ||
+      !gateSprites || scanStartedAt === null || pointerCoolingDown) {
+      return false;
+    }
+
+    const endX = getSweepEndX(timestamp);
+    const centerSize = clamp(settings.gateCenterSize, 2, 60);
+    const sweepWidth = clamp(settings.gateSweepWidth, 1, 30);
+    return endX !== null && Math.abs(endX) <= (centerSize + sweepWidth) / 2;
+  }
+
+  function rememberShotTiming(keyCode, isPressed) {
+    if (keyCode !== "FIRE" || !isPressed) return;
+
+    const timestamp = getCurrentTime();
+    pendingShotTiming = {
+      centered: isSweepCentered(timestamp),
+      expiresAt: timestamp + SHOT_CONFIRMATION_WINDOW
+    };
+  }
+
+  function handleConfirmedShot() {
+    const timestamp = getCurrentTime();
+    const hasFreshTiming = pendingShotTiming &&
+      pendingShotTiming.expiresAt >= timestamp;
+    const centered = hasFreshTiming
+      ? pendingShotTiming.centered
+      : isSweepCentered(timestamp);
+
+    pendingShotTiming = null;
+
+    if (settings.gateCenteredShotGlow && centered) {
+      scopeGlowUntil = timestamp + SCOPE_GLOW_DURATION;
+      if (gateSprites) styleRangeGate(timestamp);
+    }
+
+    resetPointerAfterShot(timestamp);
   }
 
   function ensureRangeGate(shipSprite) {
@@ -259,10 +346,7 @@
       scanStartedAt = null;
     }
 
-    const now = typeof performance !== "undefined" && performance.now
-      ? performance.now()
-      : Date.now();
-    styleRangeGate(now);
+    styleRangeGate(getCurrentTime());
   }
 
   function ensurePointer() {
@@ -308,19 +392,23 @@
     }
 
     pointerCoolingDown = false;
+    scopeGlowUntil = 0;
+    pendingShotTiming = null;
     if (pointer) pointer.visible = true;
     scanStartedAt = null;
-    if (gateSprites) styleRangeGate(0);
+    if (gateSprites) styleRangeGate(getCurrentTime());
   }
 
-  function resetPointerAfterShot() {
+  function resetPointerAfterShot(timestamp) {
     if (!gameReady || !settings.enabled || !pointerActive || !settings.resetAfterShot) {
       return;
     }
 
+    timestamp = Number.isFinite(timestamp) ? timestamp : getCurrentTime();
+
     pointerCoolingDown = true;
     if (pointer) pointer.visible = false;
-    if (gateSprites) styleRangeGate(0);
+    if (gateSprites) styleRangeGate(timestamp);
 
     if (cooldownTimer) clearTimeout(cooldownTimer);
     cooldownTimer = setTimeout(function() {
@@ -344,11 +432,20 @@
     }
 
     const originalPlayersNetwork = Players.network;
+    const originalSendKey = Network.sendKey;
+
+    if (typeof originalSendKey === "function") {
+      Network.sendKey = function(keyCode, isPressed) {
+        rememberShotTiming(keyCode, isPressed);
+        return originalSendKey.apply(this, arguments);
+      };
+    }
+
     Players.network = function(packetType, packet) {
       const result = originalPlayersNetwork.apply(this, arguments);
 
       if (packetType === Network.SERVERPACKET.PLAYER_FIRE && isMyShot(packet)) {
-        resetPointerAfterShot();
+        handleConfirmedShot();
       }
 
       return result;
@@ -446,6 +543,7 @@
     }
 
     if (!settings.resetAfterShot) cancelPointerCooldown();
+    if (!settings.gateCenteredShotGlow) scopeGlowUntil = 0;
     ensurePointer();
   }
 
@@ -506,6 +604,10 @@
       max: 5000,
       step: 250
     });
+    scopeSection.addBoolean(
+      "gateCenteredShotGlow",
+      "Glow scope after a centered sweep shot"
+    );
 
     const linesSection = provider.addSection("Scope Lines");
 
@@ -529,6 +631,16 @@
       max: 100,
       step: 5
     });
+    linesSection.addValuesField(
+      "gateSweepColorPreset",
+      "Sweep line color",
+      SWEEP_COLOR_OPTIONS
+    );
+    linesSection.addString(
+      "gateSweepCustomColor",
+      "Custom sweep HEX color (select Custom above)",
+      {maxLength: 7}
+    );
 
     const boundarySection = provider.addSection("Scope Boundary");
 
@@ -586,7 +698,7 @@
     id: EXTENSION_ID,
     description: "Adjustable laser pointer with hotkeys, shot reset, and a scanning range gate for StarMash.",
     author: "Auroboris",
-    version: "1.5.0",
+    version: "1.6.0",
     settingsProvider: createSettingsProvider()
   });
 }();
