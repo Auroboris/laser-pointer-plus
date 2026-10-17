@@ -2,7 +2,7 @@
 
 A [StarMash](https://starmash.airmash.rocks) / SWAM extension that adds some girth, length, & shades to Moz's OG laser pointer. Can function at map edges, has a new pointer 'reload' feature, and the beam origin can be adjusted.
 
-Install URL: `https://cdn.jsdelivr.net/gh/Auroboris/laser-pointer-plus@62909724ea65f8c076b1bb2eb9aacb6387ceca07/extension.js`
+Install URL: `https://cdn.jsdelivr.net/gh/Auroboris/laser-pointer-plus@c2107074ec59551a6eaa4b64181518e668abedd0/extension.js`
 
 ## Usage
 
@@ -15,4 +15,6 @@ Install the extension, reload StarMash, then open **Mod Settings → Laser Point
 - Hide the beam after each confirmed shot and choose a return delay from 100–2000 ms.
 - Toggle the scanning range gate with any chosen key (`G` by default).
 - Set the gate's distance, width, and edge-to-edge sweep time with sliders.
-- Use the faint centerline for the plane's true aim while the bright beam sweeps between the gate edges.
+- Adjust the centerline, sweep, boundary, and center-point appearance independently.
+- Use the centerline for the plane's true aim while the bright beam sweeps between the gate edges.
+- The selected color applies to the main pointer, centerline, sweep, boundary, and center point.
